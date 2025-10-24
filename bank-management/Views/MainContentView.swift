@@ -80,8 +80,10 @@ struct MainContentView: View {
         switch selection {
         case .today:
             TransactionListView(scope: .today, searchText: $searchText)
+                .id(selection) // ensure refresh when switching Today ⇄ Month
         case .all:
             TransactionListView(scope: .all, searchText: $searchText)
+                .id(selection) // ensure refresh when switching All ⇄ Month
         case .categories:
             CategoryManagerView()
         case .accounts:
@@ -96,6 +98,7 @@ struct MainContentView: View {
             }
         case .month(let y, let m):
             TransactionListView(scope: .month(y, m), searchText: $searchText)
+                .id("month-\(y)-\(m)") // force rebuild when changing month-to-month
         case .none:
             ContentPlaceholderView()
         }

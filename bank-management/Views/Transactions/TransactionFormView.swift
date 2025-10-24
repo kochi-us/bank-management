@@ -356,13 +356,13 @@ struct TransactionFormView: View {
             let pid = editing?.pairID ?? UUID()
             let tOut = Transaction(
                 id: editing?.id ?? UUID(),
-                date: date, amount: amt, memo: memo.isEmpty ? "資金移動(出金)" : memo, kind: .transfer,
+                date: date, amount: amt, memo: memo, kind: .transfer,
                 category: nil, card: nil, person: nil,
                 account: nil, fromAccount: fromAccount, toAccount: toAccount, pairID: pid
             )
             let tIn = Transaction(
                 id: UUID(),
-                date: date, amount: amt, memo: memo.isEmpty ? "資金移動(入金)" : memo, kind: .transfer,
+                date: date, amount: amt, memo: memo, kind: .transfer,
                 category: nil, card: nil, person: nil,
                 account: nil, fromAccount: fromAccount, toAccount: toAccount, pairID: pid
             )

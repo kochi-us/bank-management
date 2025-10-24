@@ -5,7 +5,6 @@
 //  Created by KOCHI on 2025/10/21.
 //
 
-
 import SwiftUI
 import Foundation
 #if os(macOS)
@@ -49,8 +48,10 @@ struct CreditCardUsageView: View {
             case .thisMonth:
                 let cal = Calendar(identifier: .gregorian)
                 let comps = cal.dateComponents([.year, .month], from: Date())
-                let start = cal.date(from: comps)!
-                let end = cal.date(byAdding: .month, value: 1, to: start)!
+                guard let start = cal.date(from: comps),
+                      let end   = cal.date(byAdding: .month, value: 1, to: start) else {
+                    return base
+                }
                 return base.filter { $0.date >= start && $0.date < end }
             case .byMonth:
                 let cal = Calendar(identifier: .gregorian)
@@ -69,8 +70,9 @@ struct CreditCardUsageView: View {
         return applySearch(byCard, query: searchText).sorted(by: { $0.date > $1.date })
     }
     
+    // 利用額合計（支出を正の額として見せるため abs 合算）
     private var totalAmount: Double {
-        filtered.reduce(0) { $0 + $1.amount }
+        filtered.reduce(0) { $0 + abs($1.amount) }
     }
     
     var body: some View {
@@ -78,13 +80,17 @@ struct CreditCardUsageView: View {
             // トップマージンを追加してサイドバー開閉ボタンと重ならないようにする
             headerBar
                 .padding(.top, 35)
-                .padding(.bottom, 15)  // ← ここを追加！
+                .padding(.bottom, 15)
+            
             List {
                 if groupedByCard.count > 1 && selectedCardID == nil {
                     // 「すべてのカード」時はカードごとに区切る
-                    ForEach(groupedByCard.keys.sorted(by: { ($0?.name ?? "") < ($1?.name ?? "") }), id: \.self?.id) { card in
-                        Section(header: sectionHeader(card)) {
-                            ForEach(groupedByCard[card] ?? [], id: \.id) { t in
+                    ForEach(
+                        groupedByCard.keys.sorted { cardName(for: $0) < cardName(for: $1) },
+                        id: \.self
+                    ) { cid in
+                        Section(header: sectionHeader(cid)) {
+                            ForEach(groupedByCard[cid] ?? [], id: \.id) { t in
                                 row(t)
                             }
                         }
@@ -208,6 +214,7 @@ struct CreditCardUsageView: View {
                 .foregroundStyle(copiedNotice ? .green : .secondary)
                 .buttonStyle(.borderless)
                 .help("合計をコピー")
+                .accessibilityLabel("合計コピー")
                 if copiedNotice {
                     Text("コピーしました")
                         .font(.caption2)
@@ -222,12 +229,13 @@ struct CreditCardUsageView: View {
         .textSelection(.enabled)
     }
     
-    private func sectionHeader(_ card: Category?) -> some View {
+    // セクション見出し（UUID? ベース）
+    private func sectionHeader(_ cardID: UUID?) -> some View {
         HStack {
             Image(systemName: "creditcard")
-            Text(card?.name ?? "不明のカード")
+            Text(cardName(for: cardID))
             Spacer()
-            let sum = (groupedByCard[card] ?? []).reduce(0) { $0 + $1.amount }
+            let sum = (groupedByCard[cardID] ?? []).reduce(0) { $0 + abs($1.amount) }
             Text(Fmt.currency.string(from: NSNumber(value: sum)) ?? "-")
                 .foregroundStyle(.secondary)
         }
@@ -252,10 +260,10 @@ struct CreditCardUsageView: View {
                 delete(t)
             } label: {
                 Image(systemName: "trash")
-                    .foregroundStyle(.white)
                     .imageScale(.medium)
                     .padding(4)
             }
+            .foregroundStyle(.secondary)
             .buttonStyle(.plain)
             .help("削除")
             .frame(width: 28, alignment: .trailing)
@@ -280,8 +288,14 @@ struct CreditCardUsageView: View {
     
     // MARK: - Helpers
     
-    private var groupedByCard: [Category?: [Transaction]] {
-        Dictionary(grouping: filtered, by: { $0.card })
+    // カードIDでグループ化（安定）
+    private var groupedByCard: [UUID?: [Transaction]] {
+        Dictionary(grouping: filtered, by: { $0.card?.id })
+    }
+    
+    private func cardName(for id: UUID?) -> String {
+        guard let id else { return "不明のカード" }
+        return store.creditCards.first(where: { $0.id == id })?.name ?? "不明のカード"
     }
     
     private func delete(_ t: Transaction) {
@@ -332,4 +346,3 @@ struct CreditCardUsageView: View {
     CreditCardUsageView(searchText: .constant(""))
         .environmentObject(AppStore())
 }
-
